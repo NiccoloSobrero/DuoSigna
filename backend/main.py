@@ -42,8 +42,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Ora i file sono dentro la sottocartella 'chatbot'
 CHATBOT_DIR = os.path.join(BASE_DIR, 'chatbot')
 
-AUDIO_FILE_PATH = os.path.join(CHATBOT_DIR, 'audio_instructions.wav')
-
 # Dictionary for letters
 JSON_PATH = os.path.join(CHATBOT_DIR, 'letters_signs.json')
 with open(JSON_PATH, 'r', encoding='utf-8') as f:
@@ -479,29 +477,15 @@ class AudioRequest(BaseModel):
     text: str
 
 
-# Funzione helper per riprodurre audio
+# Funzione helper per riprodurre audio (la sintesi vocale principale è gestita nativamente nel browser)
 @app.post("/synthesize-audio")
 async def synthesize_audio_track(
     request: AudioRequest, 
     authorization: str = Header(None)
 ):
-    # Protezione della rotta opzionale
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authorized")
-
-    try:
-        # Genera il buffer audio dalla nostra nuova funzione in bot_core
-        audio_buffer = bot.generate_audio_stream(request.text)
-        
-        if not audio_buffer:
-             raise HTTPException(status_code=500, detail="Error generating audio")
-
-        # Restituisce lo stream al frontend specificando che è un file audio
-        return StreamingResponse(audio_buffer, media_type="audio/wav")
-        
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Internal Error TTS")
+    return JSONResponse(status_code=200, content={"status": "handled_by_client"})
     
 
 

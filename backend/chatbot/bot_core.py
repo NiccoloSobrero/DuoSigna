@@ -1,15 +1,11 @@
 """ This file contains the core of the bot, connected to PostgreSQL """
 
-from sentence_transformers import SentenceTransformer
 import models
 import json
 import os
 import numpy as np
 import io
 from yt_dlp import YoutubeDL
-
-# Vocal requirements
-import soundfile as sf
 
 # Helper files
 from . import NLP_tools as NLP 
@@ -25,19 +21,6 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CHUNK_PATH = os.path.join(CURRENT_DIR, "chunks_mapping.json")
 
 SETTINGS = config.read_settings(CURRENT_DIR, 'settings.json')
-
-# Lazy-loaded Kokoro pipeline (loads into RAM on-demand to save ~350MB at startup)
-_kokoro_pipeline = None
-
-def get_kokoro_pipeline():
-    global _kokoro_pipeline
-    if _kokoro_pipeline is None:
-        print("[Kokoro] Loading Kokoro TTS pipeline...")
-        from kokoro import KPipeline
-        _kokoro_pipeline = KPipeline(lang_code='a', repo_id='hexgrad/Kokoro-82M')
-    return _kokoro_pipeline
-
-AUDIO_FILE = os.path.join(CURRENT_DIR, "audio_instructions.wav")
 
 #__________________________________________________________________________________
 # --- LOAD DICTIONARIES ---
@@ -338,59 +321,12 @@ def generate_yt_link(target_word):
 
 #__________________________________________________________________________________
 
-# --- Function to generate audio trace ---
+# --- Audio stub (Speech synthesis is handled natively in the browser via Web Speech API) ---
 def generate_audio_trace(instructions):
-    # Generate the audio: af_heart --> female voice, am_fenrir --> male voice
-    pipeline = get_kokoro_pipeline()
-    generator = pipeline(
-        instructions,
-        voice='af_heart',
-        speed=1.0,
-        split_pattern=r'\n+'
-    )
+    return None
 
-    # Merge various audio chunks
-    complete_audio = []
-
-    for i, (graphemes, phonemes, audio) in enumerate(generator):
-        complete_audio.append(audio)
-
-    # Concatenate chunks and save file
-    try:
-        final_audio = np.concatenate(complete_audio)
-        sf.write(AUDIO_FILE, final_audio, 24000) # 24 kHz is the std sample rate
-    except ValueError as e:
-        print(e)
-
-
-
-
-#streaming audio
 def generate_audio_stream(text):
-    """ Script that generates audio and returns it as a stream of bytes in memory """
-    pipeline = get_kokoro_pipeline()
-    generator = pipeline(
-        text,
-        voice='af_heart',
-        speed=1.0,
-        split_pattern=r'\n+'
-    )
-
-    complete_audio = []
-    for i, (graphemes, phonemes, audio) in enumerate(generator):
-        complete_audio.append(audio)
-
-    if not complete_audio:
-        return None
-
-    final_audio = np.concatenate(complete_audio)
-    
-    # Scriviamo l'audio in un buffer di memoria invece che su disco
-    buffer = io.BytesIO()
-    sf.write(buffer, final_audio, 24000, format='WAV')
-    buffer.seek(0) # Riporta il cursore all'inizio del file virtuale
-    
-    return buffer
+    return None
 #__________________________________________________________________________________
 
 # --- Function to start a chat ---

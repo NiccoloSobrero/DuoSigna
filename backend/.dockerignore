@@ -11,3 +11,7 @@ ENV/
 .git
 .gitignore
 .env
+*.wav
+*.mp3
+tests/
+
