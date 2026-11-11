@@ -224,7 +224,7 @@ DuoSigna combines dual recognition pipelines optimized for accuracy and speed:
 
 ## Privacy-First Product Analytics & Tag Management
 
-DuoSigna includes a **\$0 free-tier, privacy-first telemetry stack** powered by a **Client-Side Google Tag Manager (GTM) Web Container**, **Google Analytics 4 (Standard Free Tier)**, and native **Google Consent Mode v2** — with zero Server-Side GTM proxies or paid consent platforms.
+DuoSigna includes a **\$0 free-tier, privacy-first telemetry stack** powered by a **Client-Side Google Tag Manager (GTM) Web Container**, **Google Analytics 4 (Standard Free Tier)**, and native **Google Consent Mode v2**, with zero Server-Side GTM proxies or paid consent platforms.
 
 ### Architecture & Guardrails
 * **Non-Blocking Execution (`frontend/app/plugins/gtm.client.ts`):** `window.dataLayer` and `gtag()` initialize synchronously on the client, and `gtm.js` loads asynchronously (`async`, `fetchpriority="low"`) only when `NUXT_PUBLIC_GTM_ID` matches `/^GTM-[A-Z0-9]+$/i`. Ad blockers and missing IDs fail silently with zero impact on MediaPipe FPS, TTS playback, or Core Web Vitals.
@@ -271,7 +271,7 @@ DuoSigna is engineered to run **24 hours a day, 7 days a week, 100% free of char
    * Hardware-accelerated LPU (Language Processing Unit) inference for Llama 3 models delivering near-instant text generation without expensive dedicated cloud GPUs.
 
 5. **Analytics & Telemetry (GTM + GA4 + BigQuery Sandbox)**:
-   * Client-side Web GTM container connected to Google Analytics 4 Standard and optional BigQuery Sandbox daily exports — operating completely within Google's \$0 free tiers.
+   * Client-side Web GTM container connected to Google Analytics 4 Standard and optional BigQuery Sandbox daily exports, operating completely within Google's \$0 free tiers.
 
 ---
 
