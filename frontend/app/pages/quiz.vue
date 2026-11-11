@@ -3,6 +3,11 @@ import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useAuth } from '#imports'
 
 const { token } = useAuth()
+const {
+  trackQuizStarted,
+  trackQuizCompleted,
+  trackCameraPracticeResult
+} = useAnalytics()
 
 // ==============================================
 // STATO GENERALE DEL QUIZ
@@ -19,6 +24,9 @@ const isCameraInfoModalOpen = ref(false)
 const selectedCategories = ref([])
 const questions = ref([])
 const feedbackHints = ref([])
+const hintsUsed = ref(0)
+const hintTrackedForCurrentQuestion = ref(false)
+const activeQuizMeta = ref({ categoriesCount: 0, isMixed: false, questionCount: 0 })
 let feedbackTimeout = null
 
 const quizCategories = ref([
@@ -231,14 +239,25 @@ const submitSign = async () => {
     : useApiUrl('/recognize-sign')
 
   try {
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
     const response = await $fetch(targetUrl, {
       method: 'POST',
       headers: { 'Authorization': token.value },
       body: { frames: framesToSend, target_word: currentQuestion.value.targetWord }
     })
+    const endedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const latencyMs = Math.max(0, Math.round(endedAt - startedAt))
 
     appState.value = 'IDLE'
     const confidencePercent = Math.round(response.confidence * 100)
+
+    trackCameraPracticeResult({
+      context: 'quiz',
+      target_type: currentQuestion.value?.level === 'level_1' ? 'letter' : 'word',
+      passed: Boolean(response.is_correct),
+      confidence_pct: confidencePercent,
+      latency_ms: latencyMs
+    })
 
     if (response.is_correct) {
       feedbackType.value = 'success'
@@ -336,6 +355,17 @@ const startQuiz = async () => {
     quizState.value = 'playing'
     currentQuestionIndex.value = 0
     score.value = 0
+    hintsUsed.value = 0
+
+    const isMixed = selectedCategories.value.includes(mixedCategory.id)
+    const categoriesCount = isMixed ? quizCategories.value.length : selectedCategories.value.length
+    const questionCount = questions.value.length
+    activeQuizMeta.value = { categoriesCount, isMixed, questionCount }
+    trackQuizStarted({
+      categories_count: categoriesCount,
+      is_mixed: isMixed,
+      question_count: questionCount
+    })
     
     nextTick(() => {
       resetQuestionState()
@@ -388,8 +418,17 @@ const resetQuestionState = () => {
   feedbackType.value = ''
   feedbackHints.value = []
   showHint.value = false
+  hintTrackedForCurrentQuestion.value = false
   mediaLoadFailed.value = false
   stopCamera()
+}
+
+const openHint = () => {
+  showHint.value = true
+  if (!hintTrackedForCurrentQuestion.value) {
+    hintsUsed.value++
+    hintTrackedForCurrentQuestion.value = true
+  }
 }
 
 const handleAnswer = (option) => {
@@ -421,6 +460,14 @@ const nextQuestion = () => {
   } else {
     quizState.value = 'result'
     sendFinalScore()
+    const questionCount = questions.value.length || activeQuizMeta.value.questionCount || 1
+    const scorePercent = Math.round((score.value / questionCount) * 100)
+    trackQuizCompleted({
+      categories_count: activeQuizMeta.value.categoriesCount,
+      score_percent: scorePercent,
+      hints_used: hintsUsed.value,
+      question_count: questionCount
+    })
   }
 }
 
@@ -437,6 +484,7 @@ const resetQuizToIntro = () => {
   questions.value = []
   currentQuestionIndex.value = 0
   score.value = 0
+  hintsUsed.value = 0
   resetQuestionState()
 }
 
@@ -800,7 +848,7 @@ onBeforeUnmount(() => {
                   </template>
                 </div>
 
-                <UButton v-if="!showHint" color="amber" variant="soft" size="md" icon="i-lucide-help-circle" class="font-bold py-2 px-5 mt-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 shadow-sm transition-all hover:scale-105 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:shadow-md" @click="showHint = true">
+                <UButton v-if="!showHint" color="amber" variant="soft" size="md" icon="i-lucide-help-circle" class="font-bold py-2 px-5 mt-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 shadow-sm transition-all hover:scale-105 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:shadow-md" @click="openHint">
                   Don't remember the sign? Watch the hint
                 </UButton>
 

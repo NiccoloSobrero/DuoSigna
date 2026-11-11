@@ -2,7 +2,8 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 const { status } = useAuth()
-const { startTour, stopTour, isOnboardingActive } = useOnboarding() 
+const { startTour, stopTour, isOnboardingActive } = useOnboarding()
+const { openPreferences, consentStatus } = useConsent()
 
 
 // 1. Richiama la configurazione globale dell'app
@@ -86,6 +87,27 @@ const description = 'Learn sign language with DuoSigna, the interactive platform
     </UMain>
 
     <USeparator icon="i-simple-icons-nuxtdotjs" />
+
+    <footer class="border-t border-gray-200/70 dark:border-gray-800/70 bg-white/80 dark:bg-gray-950/60">
+      <div class="max-w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+        <span>DuoSigna — Interactive American Sign Language Learning</span>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 font-semibold text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer"
+            @click="openPreferences"
+          >
+            <UIcon name="i-lucide-cookie" class="w-3.5 h-3.5" />
+            Privacy &amp; Cookie Preferences
+            <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+              ({{ consentStatus === 'granted' ? 'Analytics On' : consentStatus === 'denied' ? 'Essential Only' : 'Not Set' }})
+            </span>
+          </button>
+        </div>
+      </div>
+    </footer>
+
+    <ConsentBanner />
 
   </UApp>
 </template>

@@ -84,11 +84,11 @@
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
               <div v-for="letter in alphabetSigns" :key="letter.id" class="relative h-40">
-                <div v-if="!letter.isUnlocked" @click="handleSignClick(letter)" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
+                <div v-if="!letter.isUnlocked" @click="handleSignClick(letter, 'alphabet')" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
                   <UIcon name="i-lucide-lock" class="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3" />
                   <span class="font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase text-sm text-center">{{ letter.label }}</span>
                 </div>
-                <div v-else @click="handleSignClick(letter)" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 border-2 border-primary-400 dark:border-primary-600 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer group">
+                <div v-else @click="handleSignClick(letter, 'alphabet')" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 border-2 border-primary-400 dark:border-primary-600 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer group">
                   <div class="w-14 h-14 bg-primary-50 dark:bg-primary-900/30 text-primary-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <UIcon :name="getSpecificIcon(letter.id)" class="w-8 h-8" />
                   </div>
@@ -109,11 +109,11 @@
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
               <div v-for="sign in category.signs" :key="sign.id" class="relative h-40">
-                <div v-if="!sign.isUnlocked" @click="handleSignClick(sign)" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
+                <div v-if="!sign.isUnlocked" @click="handleSignClick(sign, category.id)" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
                   <UIcon name="i-lucide-lock" class="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3" />
                   <span class="font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase text-sm text-center">{{ sign.label }}</span>
                 </div>
-                <div v-else @click="handleSignClick(sign)" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 border-2 border-primary-400 dark:border-primary-600 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer group">
+                <div v-else @click="handleSignClick(sign, category.id)" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 border-2 border-primary-400 dark:border-primary-600 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer group">
                   <div class="w-14 h-14 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <UIcon :name="getSpecificIcon(sign.id)" class="w-8 h-8" />
                   </div>
@@ -254,6 +254,7 @@ const imageLoadError = ref(false)
 
 const backendUrl = useApiUrl() 
 const { token } = useAuth()
+const { trackDictionarySignViewed } = useAnalytics()
 const pendingLearningSign = useState('pending-learning-sign', () => null)
 
 const signIcons = {
@@ -327,7 +328,7 @@ const getSpecificIcon = (id) => {
   return signIcons[id] || 'i-lucide-star' 
 }
 
-const handleSignClick = (sign) => {
+const handleSignClick = (sign, categoryId = '') => {
   imageLoadError.value = false
   selectedSign.value = sign
   let instructions = ""
@@ -338,6 +339,12 @@ const handleSignClick = (sign) => {
   }
   selectedSign.value.instructions = instructions
   isSignModalOpen.value = true
+
+  trackDictionarySignViewed({
+    category: categoryId || getSignCategory(sign.id),
+    sign_name: String(sign.id || '').toLowerCase(),
+    is_unlocked: Boolean(sign.isUnlocked)
+  })
 }
 
 const handleLearnClick = () => {

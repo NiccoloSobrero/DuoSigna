@@ -8,8 +8,12 @@ import 'driver.js/dist/driver.css'
 export const useOnboarding = () => {
   const router = useRouter()
   const isOnboardingActive = useState('onboardingActive', () => false)
-  const { token, data: user } = useAuth() 
+  const { token, data: user } = useAuth()
+  const { trackOnboardingTour } = useAnalytics()
   let driverObj = null
+  let maxStepReached = 1
+  let completedByDone = false
+  let hasReportedOutcome = false
 
   const markTourAsCompleted = async () => {
     try {
@@ -103,8 +107,11 @@ export const useOnboarding = () => {
 
   const startTour = () => {
     isOnboardingActive.value = true
-    addTourLock() 
-    
+    maxStepReached = 1
+    completedByDone = false
+    hasReportedOutcome = false
+    addTourLock()
+
     driverObj = driver({
       showProgress: true,
       allowClose: false, 
@@ -116,6 +123,13 @@ export const useOnboarding = () => {
 
       nextBtnText: 'Next',
       prevBtnText: 'Previous',
+
+      onHighlighted: () => {
+        const idx = driverObj?.getActiveIndex()
+        if (typeof idx === 'number') {
+          maxStepReached = Math.max(maxStepReached, idx + 1)
+        }
+      },
 
       onPopoverRender: () => {
         // Assegna le classi Tailwind dinamiche al bottone "Next"
@@ -136,8 +150,12 @@ export const useOnboarding = () => {
       
       onDestroyed: () => {
         isOnboardingActive.value = false
-        removeTourLock() 
+        removeTourLock()
         markTourAsCompleted()
+        if (!hasReportedOutcome) {
+          hasReportedOutcome = true
+          trackOnboardingTour(completedByDone ? 'completed' : 'skipped', maxStepReached)
+        }
       },
       
       steps: [
@@ -208,6 +226,11 @@ export const useOnboarding = () => {
                 <p class="text-xl font-bold text-gray-800 dark:text-white uppercase tracking-widest">Happy Learning!</p>
               </div>
             `,
+            onNextClick: () => {
+              completedByDone = true
+              maxStepReached = 6
+              driverObj.destroy()
+            },
             onPrevClick: () => routeAndWait('/homepage', () => driverObj.movePrevious(), '#tour-main-sidebar')
           }
         }

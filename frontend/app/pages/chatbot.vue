@@ -2,6 +2,12 @@
 import { ref, nextTick, computed, onBeforeUnmount, onMounted } from 'vue'
 
 const { token } = useAuth()
+const {
+  trackTutorInteraction,
+  trackCameraPracticeResult,
+  trackDictionarySignUnlocked
+} = useAnalytics()
+const unlockedSignsSet = ref(new Set())
 
 // ==============================================
 // CHATBOT STATE & LOGIC
@@ -136,6 +142,15 @@ const sendMessage = async (messageText = null) => {
       video_link_or_gif: response.video_link_or_gif 
     })
 
+    const intentPurpose = response.purpose === 'translation' ? 'translation' : 'general'
+    const signLevel = ['level_0', 'level_1', 'level_2'].includes(response.level) ? response.level : 'none'
+    trackTutorInteraction({
+      input_mode: 'text',
+      tts_active: isPlayingAudioFor.value !== null,
+      intent_purpose: intentPurpose,
+      sign_level: signLevel
+    })
+
   } catch (error) {
     console.error("Server connection error:", error)
     messages.value.push({
@@ -143,14 +158,33 @@ const sendMessage = async (messageText = null) => {
       content: "Sorry, there was a connection error with the server. Please check if the backend is running!",
       isError: true
     })
+    trackTutorInteraction({
+      input_mode: 'text',
+      tts_active: isPlayingAudioFor.value !== null,
+      intent_purpose: 'error',
+      sign_level: 'none'
+    })
   } finally {
     isLoading.value = false
     scrollToBottom()
   }
 }
 
+const fetchUnlockedSigns = async () => {
+  try {
+    const unlocked = await $fetch(useApiUrl('/api/user/unlocked-signs'), {
+      headers: { Authorization: token.value }
+    })
+    if (Array.isArray(unlocked)) {
+      unlockedSignsSet.value = new Set(unlocked.map(item => String(item).toLowerCase()))
+    }
+  } catch {
+    // Non-blocking fallback: ignore if unlocked-signs fetch is unavailable
+  }
+}
+
 onMounted(async () => {
-  await fetchChatHistoryList()
+  await Promise.allSettled([fetchChatHistoryList(), fetchUnlockedSigns()])
 
   const signToLearn = pendingLearningSign.value
   if (!signToLearn) return
@@ -431,6 +465,7 @@ const submitSign = async (returnToIdle = true) => {
     : useApiUrl('/recognize-sign')
 
   try {
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
     const response = await $fetch(targetUrl, {
       method: 'POST',
       headers: { 'Authorization': token.value },
@@ -439,13 +474,32 @@ const submitSign = async (returnToIdle = true) => {
         target_word: currentTargetWord.value
       }
     })
+    const endedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const latencyMs = Math.max(0, Math.round(endedAt - startedAt))
+    const confidencePct = Math.round((response.confidence || 0) * 100)
     
     recognizedWord.value = response.predicted_word
-    confidenceScore.value = Math.round(response.confidence * 100)
+    confidenceScore.value = confidencePct
     isPredictionCorrect.value = response.is_correct
+
+    trackCameraPracticeResult({
+      context: 'tutor',
+      target_type: isLevel1 ? 'letter' : 'word',
+      passed: Boolean(response.is_correct),
+      confidence_pct: confidencePct,
+      latency_ms: latencyMs
+    })
     
     if (response.is_correct) {
       triggerSuccessAlert()
+      const normalizedTarget = currentTargetWord.value.trim().toLowerCase()
+      if (normalizedTarget && normalizedTarget !== 'unknown' && !unlockedSignsSet.value.has(normalizedTarget)) {
+        unlockedSignsSet.value.add(normalizedTarget)
+        trackDictionarySignUnlocked({
+          category: getSignCategory(normalizedTarget, isLevel1),
+          sign_name: normalizedTarget
+        })
+      }
     } else {
       triggerWarningAlert()
     }

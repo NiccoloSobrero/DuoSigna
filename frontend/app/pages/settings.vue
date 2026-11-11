@@ -3,6 +3,7 @@ import { ref, computed, watchEffect, onMounted } from 'vue'
 
 // -- Auth & Profilo --
 const { data: authUser, signOut, token, getSession } = useAuth()
+const { consentStatus, acceptAnalytics, rejectAnalytics, openPreferences } = useConsent()
 
 const editName = ref('')
 const editEmail = ref('')
@@ -370,6 +371,58 @@ onMounted(() => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </UCard>
+
+          <UCard class="w-full shadow-sm" :ui="{ body: 'p-6' }">
+            <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-2 mb-6">
+              <h2 class="text-xl font-bold text-gray-900 dark:text-white">Privacy &amp; Cookie Preferences</h2>
+              <UBadge
+                :color="consentStatus === 'granted' ? 'primary' : 'neutral'"
+                variant="soft"
+                size="sm"
+              >
+                {{ consentStatus === 'granted' ? 'Analytics Enabled' : consentStatus === 'denied' ? 'Essential Only' : 'Pending Choice' }}
+              </UBadge>
+            </div>
+
+            <div class="space-y-4">
+              <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                Control optional product analytics via Google Consent Mode v2. Essential storage stays active for authentication sessions and UI preferences, while analytics never collects emails, chat prompts, or camera frames.
+              </p>
+
+              <div class="flex flex-wrap items-center gap-3 pt-1">
+                <UButton
+                  type="button"
+                  color="primary"
+                  :variant="consentStatus === 'granted' ? 'solid' : 'outline'"
+                  icon="i-lucide-check-circle"
+                  class="font-bold"
+                  @click="acceptAnalytics('settings')"
+                >
+                  Enable Analytics
+                </UButton>
+                <UButton
+                  type="button"
+                  color="neutral"
+                  :variant="consentStatus === 'denied' ? 'solid' : 'outline'"
+                  icon="i-lucide-shield-off"
+                  class="font-bold"
+                  @click="rejectAnalytics('settings')"
+                >
+                  Use Essential Only
+                </UButton>
+                <UButton
+                  type="button"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-sliders-horizontal"
+                  class="font-semibold"
+                  @click="openPreferences"
+                >
+                  Manage Preferences
+                </UButton>
               </div>
             </div>
           </UCard>

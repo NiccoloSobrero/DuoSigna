@@ -3,8 +3,9 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 // Inizializziamo il modulo di autenticazione e il router
-const { signIn } = useAuth()
+const { signIn, token } = useAuth()
 const router = useRouter()
+const { trackAuthCompleted } = useAnalytics()
 
 const isLogin = ref(true)
 const isLoading = ref(false)
@@ -97,8 +98,10 @@ const handleSubmit = async (event) => {
       await signIn({
         email: formData.email,
         password: formData.password
-      }, { callbackUrl: '/homepage' }) 
-      
+      }, { callbackUrl: '/homepage' })
+      if (token.value) {
+        trackAuthCompleted('login')
+      }
     } else {
       // 2. GESTIONE REGISTRAZIONE E LOGIN AUTOMATICO
       await $fetch(useApiUrl('/register'), {
@@ -117,6 +120,9 @@ const handleSubmit = async (event) => {
         email: formData.email,
         password: formData.password
       }, { callbackUrl: '/homepage' })
+      if (token.value) {
+        trackAuthCompleted('register')
+      }
     }
   } catch (err) {
     // Gestione degli errori (es. Email già esistente o Password errata)
