@@ -6,6 +6,7 @@
 [![Database](https://img.shields.io/badge/Database-Neon%20PostgreSQL-00E599?style=for-the-badge&logo=postgresql)](https://neon.tech)
 [![AI LLM Engine](https://img.shields.io/badge/LLM-Groq%20Cloud%20(Llama%203.3)-F55036?style=for-the-badge&logo=groq)](https://groq.com)
 [![Frontend](https://img.shields.io/badge/Frontend-Nuxt%203%20%7C%20Vue%203-00DC82?style=for-the-badge&logo=nuxtdotjs)](https://nuxt.com)
+[![Analytics](https://img.shields.io/badge/Analytics-GTM%20%2B%20GA4%20%7C%20Consent%20v2-E37400?style=for-the-badge&logo=googleanalytics)](#privacy-first-product-analytics--tag-management)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-24%2F7%20Active%20%26%20Production%20Ready-brightgreen?style=for-the-badge)](#)
 
@@ -30,11 +31,12 @@ DuoSigna is fully deployed and available 24/7 on the cloud:
 4. [Technology Stack](#technology-stack)
 5. [User Guide: How to Use DuoSigna](#user-guide-how-to-use-duosigna)
 6. [Machine Learning & Computer Vision Engine](#machine-learning--computer-vision-engine)
-7. [Cloud Infrastructure & 24/7 Deployment](#cloud-infrastructure--247-deployment)
-8. [Local Development Setup (Optional)](#local-development-setup-optional)
-9. [API Overview](#api-overview)
-10. [Authors & Academic Context](#authors--academic-context)
-11. [License](#license)
+7. [Privacy-First Product Analytics & Tag Management](#privacy-first-product-analytics--tag-management)
+8. [Cloud Infrastructure & 24/7 Deployment](#cloud-infrastructure--247-deployment)
+9. [Local Development Setup (Optional)](#local-development-setup-optional)
+10. [API Overview](#api-overview)
+11. [Authors & Academic Context](#authors--academic-context)
+12. [License](#license)
 
 ---
 
@@ -86,6 +88,11 @@ DuoSigna bridges this gap by combining:
 * **JWT-Based Authentication**: Secure registration, login, and password hashing (`bcrypt`).
 * **Cloud Database Persistence**: Cloud-hosted PostgreSQL managing profiles, unlocked signs, chat history, and evaluation scores.
 
+### 6. Privacy-First Analytics & Consent Management
+* **Google Consent Mode v2**: Defaults all storage and advertising signals (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization`) to `'denied'` before GTM initializes.
+* **Zero-Dependency Consent UI**: Theme-aware `@nuxt/ui` consent banner and accessible `<dialog>` preferences modal accessible from the footer and `/settings`.
+* **Non-PII Product Telemetry**: Client-side Google Tag Manager + GA4 instrumentation tracking SPA pageviews, onboarding completion, tutor interactions, camera latency/results, dictionary progress, and quiz funnels while strictly stripping PII, raw chat text, and camera landmarks.
+
 ---
 
 ## System Architecture
@@ -99,6 +106,7 @@ flowchart TD
         MP["MediaPipe Holistic (Client-Side Vision)"]
         TTS["Web Speech API (Browser Voice / TTS)"]
         Auth["Nuxt Auth Client (JWT)"]
+        Analytics["GTM + Consent Mode v2 (Client-Side)"]
     end
     
     subgraph Backend ["Backend (Google Cloud Run - 24/7 Container)"]
@@ -108,17 +116,20 @@ flowchart TD
         BotCore["Chatbot Core & Prompt Orchestrator"]
     end
     
-    subgraph ExternalServices ["Cloud AI & Database Services"]
+    subgraph ExternalServices ["Cloud AI, Database & Telemetry Services"]
         Groq["Groq Cloud API (Llama 3.3-70B / 3.1-8B)"]
         NeonDB[("Neon Serverless PostgreSQL Database")]
+        GA4["Google Analytics 4 & BigQuery Sandbox"]
     end
 
     User -->|"Webcam Video Feed"| MP
     User -->|"Interacts via UI & Voice"| UI
     UI -->|"Audio Output"| TTS
+    UI -->|"Sanitized dataLayer & Consent v2"| Analytics
     
     MP -->|"Normalized Landmarks JSON"| FastAPI
     UI -->|"HTTPS REST API / JWT"| FastAPI
+    Analytics -.->|"Async Non-PII Events ($0)"| GA4
     
     FastAPI -->|"Query / Update Progress"| NeonDB
     FastAPI -->|"Classification & Feedback"| RecEngine
@@ -139,6 +150,7 @@ flowchart TD
 | **Icons & Tour** | **Lucide, MDI, Driver.js** | `@iconify-json / driver.js` | Interactive guided walkthroughs and rich UI iconography |
 | **Vision (Browser)** | **MediaPipe Holistic** | `@mediapipe/holistic` | Real-time client-side pose and 21-point hand landmark detection |
 | **Speech & Audio** | **Web Speech API** | Browser Native | Zero-latency browser text-to-speech (TTS) and voice recognition |
+| **Analytics & Consent** | **GTM + GA4 + Consent Mode v2** | `Client-Side Web ($0 Free Tier)` | Non-blocking SPA telemetry, GDPR consent preferences, optional BigQuery export |
 | **Backend API** | **FastAPI** | `v0.136.x / Python 3.11` | High-performance asynchronous REST API backend |
 | **Package Manager** | **uv** | Astral `uv` | Ultra-fast Python dependency management and reproducible builds |
 | **Language Model** | **Groq Cloud API** | `llama-3.3-70b-versatile` | Real-time AI tutor dialogue, cultural guidance, and intent resolution |
@@ -210,6 +222,33 @@ DuoSigna combines dual recognition pipelines optimized for accuracy and speed:
 
 ---
 
+## Privacy-First Product Analytics & Tag Management
+
+DuoSigna includes a **\$0 free-tier, privacy-first telemetry stack** powered by a **Client-Side Google Tag Manager (GTM) Web Container**, **Google Analytics 4 (Standard Free Tier)**, and native **Google Consent Mode v2** — with zero Server-Side GTM proxies or paid consent platforms.
+
+### Architecture & Guardrails
+* **Non-Blocking Execution (`frontend/app/plugins/gtm.client.ts`):** `window.dataLayer` and `gtag()` initialize synchronously on the client, and `gtm.js` loads asynchronously (`async`, `fetchpriority="low"`) only when `NUXT_PUBLIC_GTM_ID` matches `/^GTM-[A-Z0-9]+$/i`. Ad blockers and missing IDs fail silently with zero impact on MediaPipe FPS, TTS playback, or Core Web Vitals.
+* **Google Consent Mode v2 (`frontend/app/composables/useConsent.ts`, `ConsentBanner.vue`):** Sets `analytics_storage`, `ad_storage`, `ad_user_data`, and `ad_personalization` to `'denied'` (`wait_for_update: 500`, `ads_data_redaction: true`) before GTM loads. Users can grant or reject analytics via a custom `@nuxt/ui` floating banner and native `<dialog>` preferences modal (accessible anytime from the footer or `/settings`), persisted under `localStorage['duosigna-consent-v1']`.
+* **Strict PII Protection (`frontend/app/composables/useAnalytics.ts`):** Every `dataLayer` payload passes through an allowlisted `sanitizePayload()` filter that drops unexpected fields, blocks PII keys (`email`, `nome`, `token`, `jwt`, `prompt`, `frames`, `landmarks`, `user_id`, etc.), redacts embedded tokens/emails, and strips query strings and hashes from `page_path`.
+
+### Tracked `dataLayer` Events
+| Event | Trigger Context | Key Non-PII Parameters |
+| :--- | :--- | :--- |
+| `virtual_page_view` | Initial hydration & SPA route transitions | `page_path`, `page_title` |
+| `consent_updated` | Stored rehydration & consent banner/modal actions | `consent_analytics`, `consent_source` |
+| `auth_completed` | Successful sign-in / account creation | `action` (`login` \| `register`) |
+| `onboarding_tour_action` | `Driver.js` tour completion or dismissal | `status`, `step_reached` |
+| `tutor_interaction` | AI Sign Tutor message exchange | `input_mode`, `tts_active`, `intent_purpose`, `sign_level` |
+| `camera_practice_result` | Tutor or Quiz camera recognition attempt | `context`, `target_type`, `passed`, `confidence_pct`, `latency_ms` |
+| `dictionary_sign_viewed` | Opening an ASL sign modal on `/dictionary` | `category`, `sign_name`, `is_unlocked` |
+| `dictionary_sign_unlocked` | Passing sign practice (`>= 65%`) for a new sign | `category`, `sign_name` |
+| `quiz_started` | Starting a categorized or mixed quiz session | `categories_count`, `is_mixed`, `question_count` |
+| `quiz_completed` | Finishing a quiz & viewing score summary | `categories_count`, `score_percent`, `hints_used`, `question_count` |
+
+> For the full `dataLayer` schema, GTM tag/trigger architecture, Consent Mode v2 details, and QA checklist, see **[docs/ANALYTICS_AND_PRIVACY.md](docs/ANALYTICS_AND_PRIVACY.md)**.
+
+---
+
 ## Cloud Infrastructure & 24/7 Deployment
 
 DuoSigna is engineered to run **24 hours a day, 7 days a week, 100% free of charge**, leveraging modern serverless cloud tiers:
@@ -217,7 +256,7 @@ DuoSigna is engineered to run **24 hours a day, 7 days a week, 100% free of char
 1. **Frontend on Vercel**:
    * Continuous Deployment triggered directly on every push to the `main` branch.
    * Global CDN edge delivery ensuring fast load times worldwide.
-   * Environment variable `NUXT_PUBLIC_API_BASE` points seamlessly to the Cloud Run backend.
+   * Environment variables `NUXT_PUBLIC_API_BASE` (Cloud Run backend URL) and `NUXT_PUBLIC_GTM_ID` (optional client-side GTM Web Container ID) configure runtime endpoints without server-side proxies.
 
 2. **Backend on Google Cloud Run**:
    * Packaged as an optimized Docker container using Python 3.11 and Astral `uv`.
@@ -230,6 +269,9 @@ DuoSigna is engineered to run **24 hours a day, 7 days a week, 100% free of char
 
 4. **Groq Cloud AI**:
    * Hardware-accelerated LPU (Language Processing Unit) inference for Llama 3 models delivering near-instant text generation without expensive dedicated cloud GPUs.
+
+5. **Analytics & Telemetry (GTM + GA4 + BigQuery Sandbox)**:
+   * Client-side Web GTM container connected to Google Analytics 4 Standard and optional BigQuery Sandbox daily exports — operating completely within Google's \$0 free tiers.
 
 ---
 
@@ -275,6 +317,11 @@ cd frontend
 # Install Node dependencies
 npm install
 
+# Configure environment variables (optional analytics/GTM dry-run support)
+cp .env.example .env
+# Edit .env to set NUXT_PUBLIC_API_BASE (default http://127.0.0.1:8000),
+# optional NUXT_PUBLIC_GTM_ID=GTM-XXXXXXX, and NUXT_PUBLIC_ANALYTICS_DEBUG=true
+
 # Start the Nuxt 3 development server
 npm run dev
 ```
@@ -308,7 +355,7 @@ The backend exposes fully documented REST endpoints compliant with OpenAPI / Swa
 ## Authors & Academic Context
 
 ### Production & Cloud Evolution (Current Release)
-* [Vincenzo Picone](https://github.com/vincenzopiconee) — *Lead Developer, Cloud Architecture, Groq LLM & Web Speech Integration, CI/CD & Deployment*
+* [Vincenzo Picone](https://github.com/vincenzopiconee) — *Lead Developer, Cloud Architecture, Groq LLM & Web Speech Integration, GTM/GA4 Analytics & Consent Mode v2, CI/CD & Deployment*
 
 ### Academic Origins (Politecnico di Milano)
 DuoSigna originally started as a collaborative academic project for the **Multimodal Interactive Technologies and Applications (MITA)** course at **Politecnico di Milano (PoliMi)**, developed in collaboration with:
